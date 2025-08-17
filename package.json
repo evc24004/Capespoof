@@ -19,5 +19,10 @@
   "bugs": {
     "url": "https://github.com/DJStompZone/replicape/issues"
   },
-  "homepage": "https://github.com/DJStompZone/replicape#readme"
+  "homepage": "https://github.com/DJStompZone/replicape#readme",
+  "dependencies": {
+    "bedrock-protocol": "^3.48.1",
+    "bedrock-versions": "^1.0.2",
+    "sharp": "^0.34.3"
+  }
 }
