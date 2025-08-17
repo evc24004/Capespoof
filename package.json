@@ -1,7 +1,7 @@
 {
-  "name": "replicape",
-  "version": "1.0.1",
-  "description": "![Cape Spoofer Demo](https://i.imgur.com/OQPCLvm.png)",
+  "name": "replicape-mc",
+  "version": "1.0.2",
+  "description": "Everyone deserves a developer cape.",
   "main": "proxy.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

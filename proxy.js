@@ -1,10 +1,10 @@
 'use strict';
 
 /**
- * replicape — Bedrock relay that swaps your cape on-the-fly.
+ * replicape-mc — Bedrock relay that swaps your cape on-the-fly.
  *
  * CLI usage:
- *   node replicape.js --host suomicraftpe.ddns.net --port 19132 --cape MojangStudios_cape.png
+ *   node replicape-mc.js --host suomicraftpe.ddns.net --port 19132 --cape MojangStudios_cape.png
  *
  * Optional flags:
  *   --listen-host  Default: 127.0.0.1
