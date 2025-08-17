@@ -1,6 +1,6 @@
 {
   "name": "replicape",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "![Cape Spoofer Demo](https://i.imgur.com/OQPCLvm.png)",
   "main": "proxy.js",
   "scripts": {
