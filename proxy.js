@@ -2,16 +2,19 @@
 
 /**
  * replicape — Bedrock relay that swaps your cape on-the-fly.
- * 
+ *
  * CLI usage:
  *   node replicape.js --host suomicraftpe.ddns.net --port 19132 --cape MojangStudios_cape.png
- * 
+ *
  * Optional flags:
  *   --listen-host  Default: 127.0.0.1
  *   --listen-port  Default: 19130
- *   --version      Bedrock protocol version string (default: 1.21.100)
- * 
- * Author: DJ Stomp <85457381+DJStompZone@users.noreply.github.com>
+ *   --version      Bedrock protocol version string (default: auto from bedrock-versions)
+ *
+ * Authors:
+ *     evc24004 <81397991+evc24004@users.noreply.github.com>
+ *     DJ Stomp <85457381+DJStompZone@users.noreply.github.com>
+ *
  * License: MIT
  */
 
@@ -20,13 +23,11 @@ const sharp = require('sharp');
 const { parseArgs } = require('node:util');
 const fs = require('node:fs');
 const path = require('node:path');
-const BedrockVersions = require("bedrock-versions");
+const BedrockVersions = require('bedrock-versions');
 
 /**
- * Parse CLI args with sane defaults.
- * We avoid external deps; Node 18+ provides parseArgs.
- *
- * @returns {{destHost:string, destPort:number, capePath:string, listenHost:string, listenPort:number, version:string}}
+ * Parse CLI args with sane defaults (sync).
+ * Version may be null; main() resolves it via bedrock-versions.
  */
 function getConfigFromCLI() {
   const { values } = parseArgs({
@@ -41,16 +42,15 @@ function getConfigFromCLI() {
   });
 
   const env = process.env;
-  const LATEST = await BedrockVersions.getLatestStableVersion();
   const destHost = values.host || env.REPLICAPE_DEST_HOST || 'suomicraftpe.ddns.net';
   const destPort = Number(values.port || env.REPLICAPE_DEST_PORT || 19132);
   const capePath = values.cape || env.REPLICAPE_CAPE_PATH || 'MojangStudios_cape.png';
   const listenHost = values['listen-host'] || env.REPLICAPE_LISTEN_HOST || '127.0.0.1';
   const listenPort = Number(values['listen-port'] || env.REPLICAPE_LISTEN_PORT || 19130);
-  const version = values.version || env.REPLICAPE_VERSION || LATEST || '1.21.100';
+  const version = values.version || env.REPLICAPE_VERSION || null; // null => auto
 
   if (!destHost || Number.isNaN(destPort)) {
-    console.error('Bad arguments: --host and --port (number) are required/valid.');
+    console.error('Bad arguments: --host and --port (number) must be valid.');
     process.exit(2);
   }
 
@@ -59,9 +59,6 @@ function getConfigFromCLI() {
 
 /**
  * Load a PNG and convert it to raw RGBA for bedrock-protocol skin.cape_data.
- *
- * @param {string} imgPath Absolute or relative path to a PNG file.
- * @returns {Promise<{width:number,height:number,data:{type:'Buffer',data:number[]}}>} Prepared cape data.
  */
 async function loadCapeRGBA(imgPath) {
   const resolved = path.resolve(imgPath);
@@ -83,19 +80,12 @@ async function loadCapeRGBA(imgPath) {
   return {
     width: info.width,
     height: info.height,
-    data: {
-      type: 'Buffer',
-      data: Array.from(data)
-    }
+    data: { type: 'Buffer', data: Array.from(data) }
   };
 }
 
 /**
  * Persist an incoming raw RGBA cape blob as PNG for reference.
- *
- * @param {{width:number,height:number,data:any}} capeData Raw cape from packet.
- * @param {string} outDir Directory to drop the file into.
- * @returns {Promise<string|undefined>} Output path if saved.
  */
 async function saveOriginalCapeIfAny(capeData, outDir = '.') {
   try {
@@ -112,9 +102,9 @@ async function saveOriginalCapeIfAny(capeData, outDir = '.') {
 
     const ts = Date.now();
     const out = path.resolve(outDir, `original_cape_${ts}.png`);
-    await sharp(raw, {
-      raw: { width: capeData.width, height: capeData.height, channels: 4 }
-    }).png().toFile(out);
+    await sharp(raw, { raw: { width: capeData.width, height: capeData.height, channels: 4 } })
+      .png()
+      .toFile(out);
     return out;
   } catch (err) {
     console.error('Error saving original cape:', err);
@@ -123,9 +113,6 @@ async function saveOriginalCapeIfAny(capeData, outDir = '.') {
 
 /**
  * Start the relay with packet mutation for player_skin.
- *
- * @param {{destHost:string,destPort:number,listenHost:string,listenPort:number,version:string}} cfg Relay configuration.
- * @param {{width:number,height:number,data:{type:'Buffer',data:number[]}}} spoofedCape Preloaded raw cape.
  */
 function startRelay(cfg, spoofedCape) {
   console.log(`Creating relay -> ${cfg.destHost}:${cfg.destPort} (listen ${cfg.listenHost}:${cfg.listenPort}, v=${cfg.version})`);
@@ -135,11 +122,7 @@ function startRelay(cfg, spoofedCape) {
     host: cfg.listenHost,
     port: cfg.listenPort,
     offline: false,
-    destination: {
-      host: cfg.destHost,
-      port: cfg.destPort,
-      offline: false
-    },
+    destination: { host: cfg.destHost, port: cfg.destPort, offline: false },
     omitParseErrors: true
   });
 
@@ -157,10 +140,7 @@ function startRelay(cfg, spoofedCape) {
     });
 
     player.on('serverbound', async ({ name, params }) => {
-      // Fast-path: pass chatty packets through without log spam.
-      if (name === 'player_auth_input' || name === 'interact') {
-        return { name, params };
-      }
+      if (name === 'player_auth_input' || name === 'interact') return { name, params };
 
       if (name !== 'player_skin') {
         console.log(name);
@@ -168,12 +148,10 @@ function startRelay(cfg, spoofedCape) {
       }
 
       try {
-        // Toggle a few flags to look canonical.
         params.skin.premium = true;
         params.skin.cape_on_classic = true;
         params.skin.persona = false;
 
-        // Best-effort save of original cape, if provided by client.
         if (params.skin && params.skin.cape_data) {
           const out = await saveOriginalCapeIfAny(params.skin.cape_data, '.');
           if (out) console.log(`Saved original cape -> ${out}`);
@@ -184,7 +162,6 @@ function startRelay(cfg, spoofedCape) {
           params.skin.cape_id = '1b302e84-6da6-11ec-90d6-0242ac120003';
           params.skin.full_skin_id = 'manrandomid';
 
-          // Nudge persona capes so servers that peek don't instantly reject.
           const pieces = params.skin.personal_pieces || [];
           for (const piece of pieces) {
             if (piece.piece_type === 'persona_capes') {
@@ -221,11 +198,17 @@ function startRelay(cfg, spoofedCape) {
 }
 
 /**
- * Main entry — parse CLI, load cape, run relay.
+ * Main entry — parse CLI, resolve version via bedrock-versions if needed, load cape, run relay.
  */
 async function main() {
   try {
     const cfg = getConfigFromCLI();
+
+    if (!cfg.version) {
+      cfg.version = await BedrockVersions.getLatestStableVersion();
+    }
+    console.log(`Using protocol version ${cfg.version}`);
+
     const spoofedCape = await loadCapeRGBA(cfg.capePath);
     console.log(`Cape data preloaded from ${cfg.capePath} (${spoofedCape.width}x${spoofedCape.height})`);
     startRelay(cfg, spoofedCape);
