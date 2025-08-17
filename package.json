@@ -1,0 +1,23 @@
+{
+  "name": "replicape",
+  "version": "1.0.0",
+  "description": "![Cape Spoofer Demo](https://i.imgur.com/OQPCLvm.png)",
+  "main": "proxy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DJStompZone/replicape.git"
+  },
+  "keywords": [],
+  "authors": [
+    "evc24004 <81397991+evc24004@users.noreply.github.com>",
+    "DJ Stomp <85457381+DJStompZone@users.noreply.github.com> (https://discord.stomp.zone)"
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DJStompZone/replicape/issues"
+  },
+  "homepage": "https://github.com/DJStompZone/replicape#readme"
+}
